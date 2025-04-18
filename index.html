@@ -1,184 +1,240 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>KAKI-WARS</title>
-  <style>
-    body {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      margin: 0;
-      background-color: #222;
-      background-image: url("back.png");
-      background-size: cover;
-    }
-    canvas {
-      border: 1px solid #ffffff;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <title>テトリス風ゲーム</title>
+    <style>
+        canvas {
+            border: 1px solid black;
+            display: block;
+            margin: 0 auto;
+        }
+        #score {
+            text-align: center;
+            font-size: 24px;
+            margin: 10px;
+        }
+        #level {
+            text-align: center;
+            font-size: 20px;
+            margin: 5px;
+        }
+    </style>
 </head>
 <body>
-  <canvas id="gameCanvas" width="480" height="320"></canvas>
-  <script>
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-    const keys = {};
+    <div id="score">スコア: <span id="scoreValue">0</span></div>
+    <div id="level">レベル: <span id="levelValue">1</span></div>
+    <canvas id="gameCanvas" width="240" height="400"></canvas>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('scoreValue');
+        const levelElement = document.getElementById('levelValue');
 
-
-    document.addEventListener('keydown', (e) => {
-      keys[e.code] = true;
-
-      // 追加: スペースキーが押されたときに弾を発射
-      if (e.code === 'Space') {
-        player.bullets.push({
-          x: player.x + player.size / 2 - 2,
-          y: player.y - 10,
-          size: 4,
-          speed: 6
-        });
-      }
-    });
-
-    document.addEventListener('keyup', (e) => {
-      keys[e.code] = false;
-    });
-
-    let player = {
-      x: canvas.width / 2,
-      y: canvas.height - 30 - 30, // 上に30px移動
-      size: 60,
-      speed: 4,
-      bullets: [],
-      ready: false
-    };
-
-    let enemies = [];
-    let enemySpawnCounter = 0;
-    let moveDirection = 1;
-    let moveDownCounter = 0;
-    let score = 0;
-
-    let playerImage = new Image();
-    playerImage.src = "忍者-ジャンプ4.png";
-    playerImage.onload = function() {
-      player.image = playerImage;
-      player.ready = true;
-    };
-
-    let enemyImage = new Image();
-    enemyImage.src = "kaki.png";
-    enemyImage.onload = function() {
-      for (const enemy of enemies) {
-        enemy.image = enemyImage;
-        enemy.ready = true;
-      }
-    };
-
-    function drawEnemies() {
-      for (const enemy of enemies) {
-        if (enemy.ready) {
-          ctx.drawImage(enemy.image, enemy.x, enemy.y, enemy.size, enemy.size);
-        }
-      }
-    }
-
-    function drawBullets() {
-      ctx.fillStyle = 'green';
-      for (const bullet of player.bullets) {
-        ctx.fillRect(bullet.x, bullet.y, bullet.size, bullet.size);
-      }
-    }
-
-    function update() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      if (player.ready) {
-        ctx.drawImage(player.image, player.x, player.y, player.size, player.size);
-      }
-
-      drawEnemies();
-      drawBullets();
-
-      if (keys['ArrowLeft']) {
-        player.x -= player.speed;
-      }
-      if (keys['ArrowRight']) {
-        player.x += player.speed;
-      }
-
-      for (const bullet of player.bullets) {
-        bullet.y -= bullet.speed;
-      }
-      player.bullets = player.bullets.filter(bullet => bullet.y > 0);
-
-      // 弾と敵の衝突判定を追加
-      player.bullets.forEach((bullet) => {
-        enemies.forEach((enemy) => {
-          if (
-            bullet.x < enemy.x + enemy.size &&
-            bullet.x + bullet.size > enemy.x &&
-            bullet.y < enemy.y + enemy.size &&
-            bullet.y + bullet.size > enemy.y
-          ) {
-            bullet.toRemove = true;
-            enemy.toRemove = true;
-            score += 10;
-          }
-        });
-      });
-
-      player.bullets = player.bullets.filter((bullet) => !bullet.toRemove);
-      enemies = enemies.filter((enemy) => !enemy.toRemove);
-
-      enemySpawnCounter++;
-      if (enemySpawnCounter >= 30) {
-        let newEnemy = {
-          x: Math.random() * (canvas.width - 20),
-          y: 10,
-          size: 40,
-          speed: 2,
-          ready: false
+        // 背景画像の読み込み
+        const backgroundImage = new Image();
+        backgroundImage.src = 'https://cdn.pixabay.com/photo/2017/08/23/11/07/cat-2672227_1280.jpg'; // 可愛い猫画像（Pixabay）
+        backgroundImage.onload = () => {
+            draw(); // 画像読み込み後に描画開始
         };
-        newEnemy.image = enemyImage;
-        newEnemy.ready = true;
-        enemies.push(newEnemy);
-        enemySpawnCounter = 0;
-      }
 
-      moveDownCounter++;
-      if (moveDownCounter >= 60) {
-        moveDirection = -moveDirection;
-        for (const enemy of enemies) {
-          enemy.y += 20;
+        // ゲーム設定
+        const BLOCK_SIZE = 20;
+        const BOARD_WIDTH = 12;
+        const BOARD_HEIGHT = 20;
+        const board = Array(BOARD_HEIGHT).fill().map(() => Array(BOARD_WIDTH).fill(0));
+        let score = 0;
+        let level = 1;
+        let fallInterval = 1000;
+        let gameLoopId = null;
+
+        // テトリミノの形状（L, J, I, O, S, Z, T）
+        const SHAPES = [
+            [[1, 1, 1], [0, 1, 0]], // L
+            [[1, 1, 1], [1, 0, 0]], // J
+            [[1, 1, 1, 1]],         // I
+            [[1, 1], [1, 1]],       // O
+            [[0, 1, 1], [1, 1, 0]], // S
+            [[1, 1, 0], [0, 1, 1]], // Z
+            [[1, 1, 1], [0, 1, 0]]  // T
+        ];
+
+        // 各テトリミノに対応する色
+        const COLORS = [
+            '#FF0D72', // L: ピンク
+            '#0DC2FF', // J: 水色
+            '#0DFF72', // I: 緑
+            '#F538FF', // O: 紫
+            '#FF8E0D', // S: オレンジ
+            '#FFE138', // Z: 黄色
+            '#3877FF'  // T: 青
+        ];
+
+        // 現在のテトリミノ
+        let currentPiece = null;
+        let currentX = 0;
+        let currentY = 0;
+        let currentPieceIndex = 0;
+
+        // 新しいテトリミノを生成
+        function newPiece() {
+            currentPieceIndex = Math.floor(Math.random() * SHAPES.length);
+            currentPiece = SHAPES[currentPieceIndex];
+            currentX = Math.floor((BOARD_WIDTH - currentPiece[0].length) / 2);
+            currentY = 0;
+            if (checkCollision()) {
+                alert('ゲームオーバー！スコア: ' + score);
+                clearInterval(gameLoopId);
+                document.location.reload();
+            }
         }
-        moveDownCounter = 0;
-      }
 
-      for (const enemy of enemies) {
-        enemy.x += enemy.speed * moveDirection;
-      }
-      enemies = enemies.filter(enemy => enemy.y < canvas.height);
+        // 衝突判定
+        function checkCollision(offsetX = 0, offsetY = 0, piece = currentPiece) {
+            for (let y = 0; y < piece.length; y++) {
+                for (let x = 0; x < piece[y].length; x++) {
+                    if (piece[y][x]) {
+                        const boardX = currentX + x + offsetX;
+                        const boardY = currentY + y + offsetY;
+                        if (
+                            boardX < 0 ||
+                            boardX >= BOARD_WIDTH ||
+                            boardY >= BOARD_HEIGHT ||
+                            (boardY >= 0 && board[boardY][boardX])
+                        ) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
 
-      ctx.fillStyle = "white";
-      ctx.font = "16px Arial";
-      ctx.fillText("Score: " + score, 10, 20);
+        // テトリミノを固定
+        function mergePiece() {
+            for (let y = 0; y < currentPiece.length; y++) {
+                for (let x = 0; x < currentPiece[y].length; x++) {
+                    if (currentPiece[y][x]) {
+                        board[currentY + y][currentX + x] = currentPieceIndex + 1;
+                    }
+                }
+            }
+        }
 
-      requestAnimationFrame(update);
-    }
+        // ライン消去
+        function clearLines() {
+            let linesCleared = 0;
+            for (let y = BOARD_HEIGHT - 1; y >= 0; y--) {
+                if (board[y].every(cell => cell)) {
+                    board.splice(y, 1);
+                    board.unshift(Array(BOARD_WIDTH).fill(0));
+                    linesCleared++;
+                    y++;
+                }
+            }
+            if (linesCleared > 0) {
+                if (linesCleared === 1) {
+                    score += 100;
+                } else if (linesCleared === 2) {
+                    score += 300;
+                } else if (linesCleared === 3) {
+                    score += 600;
+                } else if (linesCleared === 4) {
+                    score += 1000;
+                }
+                scoreElement.textContent = score;
 
-    canvas.addEventListener('click', (e) => {
-      player.bullets.push({
-        x: player.x + player.size / 2 - 2,
-        y: player.y - 10,
-        size: 4,
-        speed: 6
-      });
-    });
+                // スコアに応じてレベルと落下速度を更新
+                const newLevel = Math.floor(score / 500) + 1;
+                if (newLevel > level) {
+                    level = newLevel;
+                    fallInterval = Math.max(200, 1000 - (level - 1) * 100);
+                    levelElement.textContent = level;
+                    clearInterval(gameLoopId);
+                    gameLoopId = setInterval(update, fallInterval);
+                }
+            }
+        }
 
-    update();
-  </script>
+        // テトリミノの回転
+        function rotatePiece() {
+            const rotated = Array(currentPiece[0].length)
+                .fill()
+                .map(() => Array(currentPiece.length).fill(0));
+            for (let y = 0; y < currentPiece.length; y++) {
+                for (let x = 0; x < currentPiece[y].length; x++) {
+                    rotated[x][currentPiece.length - 1 - y] = currentPiece[y][x];
+                }
+            }
+            if (!checkCollision(0, 0, rotated)) {
+                currentPiece = rotated;
+            }
+        }
+
+        // 描画
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 背景画像の描画
+            if (backgroundImage.complete) {
+                ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
+            }
+
+            // ボードの描画
+            for (let y = 0; y < BOARD_HEIGHT; y++) {
+                for (let x = 0; x < BOARD_WIDTH; x++) {
+                    if (board[y][x]) {
+                        ctx.fillStyle = COLORS[board[y][x] - 1];
+                        ctx.fillRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE - 1, BLOCK_SIZE - 1);
+                    }
+                }
+            }
+
+            // 現在のテトリミノの描画
+            for (let y = 0; y < currentPiece.length; y++) {
+                for (let x = 0; x < currentPiece[y].length; x++) {
+                    if (currentPiece[y][x]) {
+                        ctx.fillStyle = COLORS[currentPieceIndex];
+                        ctx.fillRect(
+                            (currentX + x) * BLOCK_SIZE,
+                            (currentY + y) * BLOCK_SIZE,
+                            BLOCK_SIZE - 1,
+                            BLOCK_SIZE - 1
+                        );
+                    }
+                }
+            }
+        }
+
+        // ゲームの更新
+        function update() {
+            if (!checkCollision(0, 1)) {
+                currentY++;
+            } else {
+                mergePiece();
+                clearLines();
+                newPiece();
+            }
+            draw();
+        }
+
+        // キーボード入力
+        document.addEventListener('keydown', e => {
+            if (e.key === 'ArrowLeft' && !checkCollision(-1, 0)) {
+                currentX--;
+            } else if (e.key === 'ArrowRight' && !checkCollision(1, 0)) {
+                currentX++;
+            } else if (e.key === 'ArrowDown' && !checkCollision(0, 1)) {
+                currentY++;
+            } else if (e.key === 'ArrowUp') {
+                rotatePiece();
+            }
+            draw();
+        });
+
+        // ゲームループ開始
+        newPiece();
+        gameLoopId = setInterval(update, fallInterval);
+    </script>
 </body>
 </html>
