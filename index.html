@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <title>シンプルなシューティングゲーム</title>
     <style>
+        /* CSSは変更なし */
         body {
             display: flex;
             justify-content: center;
@@ -27,7 +28,7 @@
         }
         #instructions {
             position: absolute;
-            top: 50px; /* スコアの下に配置 */
+            top: 50px;
             left: 50%;
             transform: translateX(-50%);
             color: white;
@@ -49,12 +50,59 @@
         const ctx = canvas.getContext('2d');
         const scoreDisplay = document.getElementById('score');
 
+        // --- ▼ 画像読み込み処理 ▼ ---
+        let imagesLoadedCount = 0;
+        const totalImages = 2; // 読み込む画像の総数 (プレイヤー + 弾)
+        let isPlayerImageLoaded = false;
+        let isBulletImageLoaded = false;
+
+        // プレイヤー画像の読み込み
+        const playerImage = new Image();
+        playerImage.src = 'player.png'; // ★プレイヤー画像ファイル名
+        playerImage.onload = imageLoaded;
+        playerImage.onerror = imageError;
+
+        // 弾画像の読み込み
+        const bulletImage = new Image();
+        bulletImage.src = 'bullet.png'; // ★弾の画像ファイル名
+        bulletImage.onload = imageLoaded;
+        bulletImage.onerror = imageError;
+
+        function imageLoaded() {
+            imagesLoadedCount++;
+            // どの画像がロードされたか判別 (srcで判定)
+            if (this.src.includes('player.png')) {
+                isPlayerImageLoaded = true;
+                console.log("プレイヤー画像を読み込みました。");
+            } else if (this.src.includes('bullet.png')) {
+                isBulletImageLoaded = true;
+                console.log("弾の画像を読み込みました。");
+            }
+
+            // すべての画像が読み込まれたらゲームを開始
+            if (imagesLoadedCount === totalImages) {
+                console.log("全ての画像を読み込みました。ゲームを開始します。");
+                gameLoop();
+            }
+        }
+
+        function imageError() {
+            console.error("画像の読み込みに失敗しました:", this.src);
+            // エラーがあってもゲームを開始する場合（画像なしで表示される可能性がある）
+            imagesLoadedCount++; // エラーでもカウントは進める
+             if (imagesLoadedCount === totalImages) {
+                 console.warn("一部画像の読み込みに失敗しましたが、ゲームを開始します。");
+                 gameLoop();
+             }
+        }
+        // --- ▲ 画像読み込み処理 ▲ ---
+
         // プレイヤーの設定
         let player = {
             x: canvas.width / 2,
-            y: canvas.height - 50,
-            width: 40,
-            height: 40,
+            y: canvas.height - 60,
+            width: 50,  // ★プレイヤー画像の表示幅
+            height: 50, // ★プレイヤー画像の表示高さ
             speed: 5
         };
 
@@ -64,7 +112,7 @@
         let score = 0;
         let gameOver = false;
         let lastShotTime = 0;
-        const shotCooldown = 500; // 発射間隔（ミリ秒）
+        const shotCooldown = 500;
 
         // マウスの位置
         let mouseX = player.x;
@@ -75,34 +123,38 @@
             mouseX = e.clientX - rect.left;
         });
 
-        // スコアに応じた弾数の計算
+        // スコアに応じた弾数の計算 (変更なし)
         function getBulletCount() {
-            if (score >= 700) return 15; // スコア700以上で15発
-            if (score >= 600) return 10; // スコア600以上で10発
-            if (score >= 500) return 7; // スコア500以上で7発
-            if (score >= 400) return 6; // スコア400以上で6発
-            if (score >= 300) return 5; // スコア300以上で5発
-            if (score >= 200) return 4; // スコア200以上で4発
-            if (score >= 100) return 3; // スコア100以上で3発
-            if (score >= 50) return 2; // スコア50以上で2発
-            return 1; // それ以下で1発
+            // ... (省略) ...
+            if (score >= 700) return 15;
+            if (score >= 600) return 10;
+            if (score >= 500) return 7;
+            if (score >= 400) return 6;
+            if (score >= 300) return 5;
+            if (score >= 200) return 4;
+            if (score >= 100) return 3;
+            if (score >= 50) return 2;
+            return 1;
         }
 
-        // 弾の発射（マウスクリック、スコアに応じた弾数）
+        // --- ▼弾の生成処理 (width/heightを調整)▼ ---
         canvas.addEventListener('click', () => {
             if (!gameOver) {
                 const currentTime = Date.now();
                 if (currentTime - lastShotTime >= shotCooldown) {
                     const bulletCount = getBulletCount();
                     const spacing = 15; // 弾の間隔
-                    const startX = player.x - (bulletCount - 1) * spacing / 2; // 中央揃え
+                    // ★ 弾の幅に合わせて発射位置の計算を微調整する場合がある
+                    const bulletWidth = 10; // ★弾画像の表示幅に合わせて変更
+                    const bulletHeight = 20; // ★弾画像の表示高さに合わせて変更
+                    const startX = player.x + player.width / 2 - (bulletCount * spacing) / 2 + spacing / 2;
 
                     for (let i = 0; i < bulletCount; i++) {
                         bullets.push({
-                            x: startX + i * spacing,
-                            y: player.y - player.height / 2,
-                            width: 5,
-                            height: 10,
+                            x: startX + i * spacing - bulletWidth / 2, // 中央揃え
+                            y: player.y,
+                            width: bulletWidth,   // ★弾画像の幅
+                            height: bulletHeight, // ★弾画像の高さ
                             speed: 7
                         });
                     }
@@ -110,112 +162,35 @@
                 }
             }
         });
+        // --- ▲ここまで▲ ---
 
-// 敵の生成（1秒ごと、ランダム1～5体、色に応じた速度とサイズ）
+        // 敵生成関数 (5種類、変更なし)
         function spawnEnemy() {
-            if (!gameOver) {
-                // 5色に増やす
+            // ... (省略) ...
+             if (!gameOver) {
                 const colors = ['red', 'green', 'blue', 'orange', 'purple'];
-                const enemyCount = Math.floor(Math.random() * 5) + 1; // 1～5のランダムな数
-
+                const enemyCount = Math.floor(Math.random() * 5) + 1;
                 for (let i = 0; i < enemyCount; i++) {
                     const randomColor = colors[Math.floor(Math.random() * colors.length)];
-                    let speed;
-                    let size;
-
-                    // 色に応じて速度とサイズを決定 (switch文を使うと見やすい)
+                    let speed, size;
                     switch (randomColor) {
-                        case 'red':
-                            speed = 2;
-                            size = 40;
-                            break;
-                        case 'green':
-                            speed = 4;
-                            size = 30;
-                            break;
-                        case 'blue':
-                            speed = 6;
-                            size = 20;
-                            break;
-                        case 'orange': // 新しい敵: オレンジ
-                            speed = 3; // 例: 赤と緑の中間の速度
-                            size = 35; // 例: 赤と緑の中間のサイズ
-                            break;
-                        case 'purple': // 新しい敵: 紫
-                            speed = 5; // 例: 緑と青の中間の速度
-                            size = 25; // 例: 緑と青の中間のサイズ
-                            break;
-                        default: //念のためデフォルト値
-                            speed = 4;
-                            size = 30;
+                        case 'red': speed = 2; size = 40; break;
+                        case 'green': speed = 4; size = 30; break;
+                        case 'blue': speed = 6; size = 20; break;
+                        case 'orange': speed = 3; size = 35; break;
+                        case 'purple': speed = 5; size = 25; break;
+                        default: speed = 4; size = 30;
                     }
-
-                    enemies.push({
-                        x: Math.random() * (canvas.width - size), // サイズを考慮したX座標
-                        y: 0,
-                        width: size,
-                        height: size,
-                        speed: speed,
-                        color: randomColor
-                    });
+                    enemies.push({ x: Math.random() * (canvas.width - size), y: 0, width: size, height: size, speed: speed, color: randomColor });
                 }
             }
         }
-        setInterval(spawnEnemy, 1000); // 1秒ごとに敵を生成（これは変更なし）// 敵の生成（1秒ごと、ランダム1～5体、色に応じた速度とサイズ）
-        function spawnEnemy() {
-            if (!gameOver) {
-                // 5色に増やす
-                const colors = ['red', 'green', 'blue', 'orange', 'purple'];
-                const enemyCount = Math.floor(Math.random() * 5) + 1; // 1～5のランダムな数
+        setInterval(spawnEnemy, 1000);
 
-                for (let i = 0; i < enemyCount; i++) {
-                    const randomColor = colors[Math.floor(Math.random() * colors.length)];
-                    let speed;
-                    let size;
-
-                    // 色に応じて速度とサイズを決定 (switch文を使うと見やすい)
-                    switch (randomColor) {
-                        case 'red':
-                            speed = 2;
-                            size = 40;
-                            break;
-                        case 'green':
-                            speed = 4;
-                            size = 30;
-                            break;
-                        case 'blue':
-                            speed = 6;
-                            size = 20;
-                            break;
-                        case 'orange': // 新しい敵: オレンジ
-                            speed = 3; // 例: 赤と緑の中間の速度
-                            size = 35; // 例: 赤と緑の中間のサイズ
-                            break;
-                        case 'purple': // 新しい敵: 紫
-                            speed = 5; // 例: 緑と青の中間の速度
-                            size = 25; // 例: 緑と青の中間のサイズ
-                            break;
-                        default: //念のためデフォルト値
-                            speed = 4;
-                            size = 30;
-                    }
-
-                    enemies.push({
-                        x: Math.random() * (canvas.width - size), // サイズを考慮したX座標
-                        y: 0,
-                        width: size,
-                        height: size,
-                        speed: speed,
-                        color: randomColor
-                    });
-                }
-            }
-        }
-        setInterval(spawnEnemy, 1000); // 1秒ごとに敵を生成（これは変更なし）
-
-        // 衝突判定
+        // 衝突判定 (変更なし)
         function isColliding(rect1, rect2) {
-            return rect1.x < rect2.x + rect2.width &&
+            // ... (省略) ...
+             return rect1.x < rect2.x + rect2.width &&
                    rect1.x + rect1.width > rect2.x &&
                    rect1.y < rect2.y + rect2.height &&
                    rect1.y + rect1.height > rect2.y;
@@ -224,52 +199,69 @@
         // ゲームループ
         function gameLoop() {
             if (gameOver) {
-                ctx.fillStyle = 'white';
-                ctx.font = '40px Arial';
-                ctx.fillText('Game Over', canvas.width / 2 - 100, canvas.height / 2);
-                ctx.fillText(`Score: ${score}`, canvas.width / 2 - 60, canvas.height / 2 + 50);
+                 // ... (ゲームオーバー表示、省略) ...
+                 ctx.fillStyle = 'white'; ctx.font = '40px Arial'; ctx.textAlign = 'center';
+                 ctx.fillText('Game Over', canvas.width / 2, canvas.height / 2 - 20);
+                 ctx.font = '30px Arial'; ctx.fillText(`Score: ${score}`, canvas.width / 2, canvas.height / 2 + 30);
+                 ctx.textAlign = 'left';
                 return;
             }
 
             // キャンバスをクリア
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // プレイヤーの移動（マウスに追従）
+            // プレイヤーの移動 (変更なし)
             player.x = mouseX - player.width / 2;
             if (player.x < 0) player.x = 0;
             if (player.x > canvas.width - player.width) player.x = canvas.width - player.width;
 
-            // プレイヤーの描画
-            ctx.fillStyle = 'blue';
-            ctx.fillRect(player.x, player.y, player.width, player.height);
+            // プレイヤーの描画 (画像、変更なし)
+            if (isPlayerImageLoaded) {
+                 ctx.drawImage(playerImage, player.x, player.y, player.width, player.height);
+            } else {
+                ctx.fillStyle = 'gray'; ctx.fillRect(player.x, player.y, player.width, player.height);
+            }
 
-            // 弾の更新と描画
-            bullets = bullets.filter(bullet => bullet.y > 0);
+            // --- ▼弾の更新と描画 (画像に変更)▼ ---
+            bullets = bullets.filter(bullet => bullet.y + bullet.height > 0); // 画面外に出たら消すように調整
             bullets.forEach(bullet => {
                 bullet.y -= bullet.speed;
-                ctx.fillStyle = 'yellow';
-                ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
-            });
 
-            // 敵の更新と描画
-            enemies = enemies.filter(enemy => enemy.y < canvas.height);
-            enemies.forEach(enemy => {
-                enemy.y += enemy.speed; // 色に応じた速度で移動
-                ctx.fillStyle = enemy.color; // 敵の色を使用
-                ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height); // 色に応じたサイズで描画
-
-                // 敵とプレイヤーの衝突
-                if (isColliding(player, enemy)) {
-                    gameOver = true;
+                // 画像が読み込み済みなら画像を描画
+                if (isBulletImageLoaded) {
+                    ctx.drawImage(bulletImage, bullet.x, bullet.y, bullet.width, bullet.height);
+                } else {
+                    // まだなら代替の四角形を描画
+                    ctx.fillStyle = 'yellow';
+                    ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
                 }
+            });
+             // --- ▲ここまで▲ ---
 
-                // 弾と敵の衝突
+            // 敵の更新と描画 (変更なし)
+            enemies = enemies.filter(enemy => enemy.y < canvas.height);
+            enemies.forEach((enemy, enemyIndex) => {
+                enemy.y += enemy.speed;
+                ctx.fillStyle = enemy.color;
+                ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+
+                // 敵とプレイヤーの衝突 (変更なし)
+                if (isColliding(player, enemy)) { gameOver = true; }
+
+                // 弾と敵の衝突 (変更なし)
                 bullets.forEach((bullet, bulletIndex) => {
-                    if (isColliding(bullet, enemy)) {
-                        enemies.splice(enemies.indexOf(enemy), 1);
-                        bullets.splice(bulletIndex, 1);
-                        score += 10;
-                        scoreDisplay.textContent = `Score: ${score}`;
+                    // 存在チェックを追加
+                    const currentEnemy = enemies[enemyIndex];
+                    if (currentEnemy && isColliding(bullet, currentEnemy)) {
+                        // 敵を配列から削除する前にインデックスを取得
+                        const indexToRemove = enemies.indexOf(currentEnemy);
+                        if(indexToRemove > -1) { // 念のためインデックスが存在するか確認
+                           enemies.splice(indexToRemove, 1);
+                           bullets.splice(bulletIndex, 1);
+                           score += 10;
+                           scoreDisplay.textContent = `Score: ${score}`;
+                           // splice後のインデックス問題を避けるため、内外のループ構造を見直すのがより堅牢
+                        }
                     }
                 });
             });
@@ -277,8 +269,8 @@
             requestAnimationFrame(gameLoop);
         }
 
-        // ゲーム開始
-        gameLoop();
+        // ★ゲーム開始は imageLoaded 関数内で、全ての画像読み込み後に呼び出される
+
     </script>
 </body>
 </html>
